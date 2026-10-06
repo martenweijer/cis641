@@ -24,6 +24,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    networks:
+      - exchange-net
 
   kafka-ui:
     image: provectuslabs/kafka-ui:v0.7.2
@@ -36,11 +38,54 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+    networks:
+      - exchange-net
+
+  mysql:
+    image: mysql:8.4
+    container_name: mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: exchange
+      MYSQL_USER: cis641
+      MYSQL_PASSWORD: cis641
+      MYSQL_ROOT_PASSWORD: cis641
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-ucis641", "-pcis641"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - exchange-net
 
   producer:
     build: ./producer
     container_name: producer
+    environment:
+      KAFKA_BOOTSTRAP: kafka:29092
     depends_on:
       kafka:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - exchange-net
+
+  consumer:
+    build: ./consumer
+    container_name: consumer
+    environment:
+      KAFKA_BOOTSTRAP: kafka:29092
+      MYSQL_HOST: mysql
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - exchange-net
+
+networks:
+  exchange-net:
+    driver: bridge
